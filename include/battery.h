@@ -9,7 +9,7 @@
 
 #define BAT_READ_TIME_GAP 10000 // 10s
 
-#define BAT_LOW 3.30
+#define BAT_LOW 3.40
 #define BAT_FULL 4.20
 #define BAT_EMPTY 2.64
 
