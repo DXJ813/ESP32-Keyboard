@@ -1,98 +1,62 @@
-# ESP32-Keyboard-Customized
-A multi-functional ESP32-C3 keyboard with 5 customizable keys, with alias called "ESP32 Keybrick". Uses "Hid2Ble" library (This helps a lot it saved my time developing BLE funcs), [See here](https://github.com/BearLaboratory/Hid2Ble).
+ESP32 mini蓝牙键盘
+这是一个基于 ESP32-C3 的多功能 5 键可自定义键盘。
+本项目使用了 "Hid2Ble" 库（非常感谢这个库，节省了大量开发 BLE 功能的时间）(https://github.com/BearLaboratory/Hid2Ble)。
 
----
+功能特性
+[√] 发送单键值
+[√] 发送组合键
+[-] 发送媒体键（暂未完全支持）
+[√] 倒计时定时器
+[√] 节拍器
+[√] 加载不同的按键预设 (Presets)
+[-] 无需修改代码即可创建新预设（计划中）
+[√] 电池电量监测与管理
+[-] 蓝牙断开自动重连（计划中）
 
-![IMG_20250328_122641](https://github.com/user-attachments/assets/f8192b05-58b5-45bf-b381-eb0c5d716f49)
+硬件说明
+本项目使用 ESP32-C3-mini-1 模组，配备 5 个机械轴、1 个无源蜂鸣器和 1 个指示灯。
+使用 0.91 英寸 OLED 显示屏 (128*32) 进行界面显示。
+电源部分采用 TP4056 模块和 3.7V 锂电池。
 
-![IMG_20250402_112802 )](https://github.com/user-attachments/assets/0e681c89-e31d-418d-b1d1-de1a4afd016d)
----
-
-## Features
-
- - [√] Send single key
- - [√] Send combo
- - [-] Send media key
- - [√] Count down timer
- - [√] Metronome
- - [√] Load other presets
- - [-] Create new presets without modifying code
- - [√] Battery monitoring and managing
- - [-] Reconnect automatically
-
-5 presets are available now, based on the shortcut of the software I frequently used (Ctrl X/C/V/Z; VSCode shortcuts; Commonly used system shortcuts; EDA software...). You can modify them in code to suit your needs.
-
-Presets location: sys.cpp `KeyPreset presets[PRESET_COUNT]`.
-
-## Hardware
-
-This project uses ESP32-C3-mini-1 module, with 5 mechanical key shafts, 1 passive buzzer, and 1 indicator led.
-
-A 0.91 inch OLED display (128*32) is used for interface display.
-
-TP4056 module and 3.7V lithium battery are used for power supply.
-
-See below for specific pin settings:
-```
+具体引脚定义如下：
 // Pin definitions
-#define ADC_PIN         A0
-#define BUZZER_PIN      1
-#define BTN_1_PIN       2
-#define BTN_2_PIN       3
-#define BTN_3_PIN       4
-#define BTN_4_PIN       5
-#define OLED_SDA        6
-#define OLED_SCL        7
-#define BTN_5_PIN       8
-#define STATUS_LED      10
-```
+#define ADC_PIN         A0  // 电池电压采样
+#define BUZZER_PIN      1   // 蜂鸣器
+#define BTN_1_PIN       2   // 按键 1
+#define BTN_2_PIN       3   // 按键 2
+#define BTN_3_PIN       4   // 按键 3
+#define BTN_4_PIN       5   // 按键 4
+#define OLED_SDA        6   // OLED SDA
+#define OLED_SCL        7   // OLED SCL
+#define BTN_5_PIN       8   // 按键 5
+#define STATUS_LED      10  // 状态指示灯
+注意：按键应设置为上拉模式。如果你没有外接上拉电阻，请确保在 KEY_Init() 函数中将每个按键的 pinMode 设置为 INPUT_PULLUP。
 
-*Keys should be set to pull-up mode. If you don't have external pull-up resistors, please change the pinMode of each key to `INPUT_PULLUP` (in the KEY_Init() function).*
+使用说明
+请使用 PlatformIO 打开项目文件夹并下载程序。
 
-Schematic/PCB below:
-
-<img width="1873" height="1323" alt="屏幕截图 2025-07-23 103347" src="https://github.com/user-attachments/assets/b504fdc1-eff4-463b-aabf-3dd12def60f8" />
-
-![屏幕截图 2025-04-05 232511](https://github.com/user-attachments/assets/f91ffca2-36a5-414b-9cfa-0f3b87ed686d)
-![屏幕截图 2025-04-05 232523](https://github.com/user-attachments/assets/62a9f4f8-30b5-4eb6-bd6f-50cd437f1e75)
+默认按键功能:
 
 
-## How to use
+系统模式切换 (长按逻辑):
+我们采用了最新的独立长按逻辑，每个按键负责一种模式的进入与退出：
+系统配置模式 (Config Mode):
+长按按键 1 (BTN_1_PIN)：进入或退出配置模式。
+在此模式下操作：
+按键 4：切换上一个预设。
+按键 5：切换下一个预设。
+按键 1：确认选择并应用当前预设（随后自动返回主模式）。
 
-Please use platformio to open the folder and download programs. 
-The default key setting should be:
+倒计时定时器 (Timer Mode):
+长按按键 2 (BTN_2_PIN)：进入或退出定时器设置界面。
 
-`BTN_1_PIN`: Ctrl+C
+节拍器 (Metronome Mode):
+长按按键 3 (BTN_3_PIN)：进入或退出节拍器界面。
 
-`BTN_2_PIN`: Ctrl+V
+注意事项 (焊接与组装)
+OLED 焊接：焊接 OLED 时，排针插入焊盘一半深度即可，不要完全插到底（插得太深会导致外壳和屏幕之间出现缝隙，不美观）。
+剪脚：机械轴和 OLED 焊接完成后，背面的引脚必须剪短、修平，以免凸出。因为 PCB 背面还需要贴装 TP4056 模块并放置锂电池。
 
-`BTN_3_PIN`: Ctrl+X
+电池尺寸：我购买的锂电池型号是 652272，这个厚度刚好可以塞进外壳与 PCB 之间的空隙 (厚度 ≤ 6.5mm)。
 
-`BTN_4_PIN`: N/A
-
-`BTN_5_PIN`: N/A
-
-- Press and hold KEY4`BTN_4_PIN` to enter metronome mode
-- Press and hold KEY5`BTN_5_PIN` to enter the timer setting screen
-- Press and hold KEY4 and KEY5 at the same time to modify key mapping (presets)
-
-**Once in these modes, to return plz press and hold `BTN_5_PIN`**
-
-## Notice
-
-- When welding OLED, insert about half of the pad without completely inserting it (inserting too much will cause a gap between the shell and the screen)
-- The pins of the mechanical key shaft and OLED should be cut short after welding so as not to bulge out, because the back needs to be welded with TP4056 and accommodate the lithium battery.
-- The type of lithium battery I bought is 652272, and this thickness can fit just into the area between the shell and the PCB. (≤6.5mm)
-- !!! For the TP4056 module: Solder the module directly to the pad area on the back of the PCB with a heat gun (like the parent board). It may be a little difficult to weld, it is recommended to weld the two pads at the input end first, then press the module with tweezers to weld the remaining four pads
-
----
-
-*The code is not robust enough, bugs exists. **Really appreciate it if you could suggest changes or offer code.***
-
-*Known issue:*
-- *An extra keystroke is triggered abnormally when returning to the main mode, sometimes*
-- ~~*Return to main mode when metronome is enabled, keystroke is unavailable*~~ (fixed)
-- *Key-press logic is a little bit poor :(*
-
-## Credit
-Credit to *WoodBreeze*, my bro, for helping me finding bugs :)
+TP4056 模块处理：!!! 对于 TP4056 充电模块：建议使用热风枪将其直接作为贴片元件焊接到 PCB 背面的焊盘区域（类似于子母板的设计）。手焊可能稍有难度，建议先焊接输入端的两个焊盘固定位置，然后用镊子压住模块，再焊接剩余的四个输出焊盘。
