@@ -8,11 +8,10 @@
 
 // [关键修复] 显式以 C 语言方式引入 key.h
 // 必须放在 #include "sys.h" 之前，确保编译器知道 KEY_Update 是 C 函数
-extern "C" {
-    #include "key.h"
-}
+#include "key.h"
 
 #include "sys.h"
+#include "ui_manager.h"
 #include <Preferences.h> // ESP32 NVS (非易失性存储) 库
 
 // 系统当前运行模式，默认为普通模式
@@ -73,11 +72,8 @@ char media[5][2]{
 
 // 全局控制变量
 uint8_t currentPreset = 0; // 当前选中的预设索引
-uint8_t scrollPos = 0;     // OLED 滚动显示的当前位置
 bool changeName = false;   // 预设切换标志 (用于触发 UI 刷新)
 
-uint32_t lastActivityTime = 0; // 最后一次操作时间戳 (用于屏幕休眠)
-bool screenOn = true;          // 屏幕电源状态
 bool active = false;           // 系统活跃标志
 
 /**
@@ -166,7 +162,7 @@ void SYS_KeyConfig()
     if (keyState[3].isPressed)
     {
         currentPreset = (currentPreset + PRESET_COUNT - 1) % PRESET_COUNT;
-        scrollPos = 0;
+        UIManager::resetScroll();
         changeName = true; // 触发 UI 刷新名称
         delay(100);        // 简单防抖
     }
@@ -177,7 +173,7 @@ void SYS_KeyConfig()
     {
         currentPreset = (currentPreset + 1) % PRESET_COUNT;
         changeName = true;
-        scrollPos = 0;
+        UIManager::resetScroll();
         delay(100);
     }
 
@@ -256,7 +252,7 @@ void SYS_StatusLEDCtrl()
     static bool ledState = LOW;
 
     // 如果需要在息屏时关闭 LED，可取消以下注释
-    if (!screenOn)
+    if (!UIManager::isScreenOn())
     {
         digitalWrite(STATUS_LED, LOW);
         return;
@@ -282,5 +278,125 @@ void SYS_StatusLEDCtrl()
             digitalWrite(STATUS_LED, ledState);
             sysStatus.lastLedUpdate = millis();
         }
+    }
+}
+
+// =================================================================================
+// 从 main.cpp 迁移过来的逻辑
+// =================================================================================
+
+#include "timerMetronome.h"
+
+/* 实例化 BLE HID 对象: 设备名, 制造商, 电量初始值 */
+Hid2Ble keybrick("ESP32C3 BLE Keybrick", "dxj", 100);
+
+/**
+ * @brief  按键检测与系统定时器中断服务函数
+ * @note   触发频率: 10ms (100Hz)
+ * @note   IRAM_ATTR 属性强制将此函数加载到 IRAM 中运行，
+ * 避免 Flash 缓存未命中（Cache Miss）导致的中断延迟，保证实时性。
+ */
+void IRAM_ATTR KEY_Detect()
+{
+
+    // --- 1. 按键状态扫描与去抖逻辑 ---
+    // 遍历 5 个物理按键
+    for (int i = 0; i < 5; i++)
+    {
+        if (keyState[i].isReleased)
+        {
+            // 逻辑：当按键被物理释放，且之前处于按下状态时，标记发送“释放”信号
+            if (!keyState[i].isPressed)
+            {
+                sendRelease = true;             // 全局标志位：请求发送 Key Release
+                keyState[i].isReleased = false; // 复位状态
+            }
+        }
+        else
+        {
+            // 逻辑：当按键处于按下状态，标记 shouldSend 请求主循环发送键值
+            if (keyState[i].isPressed)
+            {
+                keyState[i].shouldSend = true;
+            }
+        }
+    }
+
+    // --- 2. 倒计时定时器逻辑 (Timer Mode) ---
+    // 通过累加 10ms 中断次数来实现秒级计时
+    static uint8_t timerCnt = 0;
+    if (timer.enabled)
+    {
+        timerCnt++;
+        if (timerCnt >= 100)
+        { // 10ms * 100 = 1000ms = 1s
+            uint32_t now = millis();
+            // 检查是否到达目标时间
+            if (now >= (timer.targetSec - 1))
+            {
+                timerTriggered = true; // 触发定时器结束事件
+                timer.enabled = false; // 停止计时
+            }
+            timerCnt = 0; // 重置秒计数器
+        }
+    }
+}
+
+/**
+ * @brief  电池电量更新中断
+ * @note   触发频率: 1分钟
+ */
+void IRAM_ATTR BLE_UpdateBAT()
+{
+    // 仅在 BLE 连接建立后更新电量特征值 (Battery Level Characteristic)
+    if (keybrick.isConnected())
+    {
+        keybrick.setBatteryLevel(BAT_GetPercentage());
+    }
+}
+
+/**
+ * @brief  处理 HID 报文发送逻辑
+ * @note   根据 keyState 状态构建并发送 BLE 报文
+ */
+void KEY_Send()
+{
+    // 遍历所有按键，检查是否有待发送的按下事件
+    for (int i = 0; i < 5; i++)
+    {
+        if (keyState[i].shouldSend && !keyState[i].isReleased)
+        {
+
+            // 根据按键索引发送对应的键值缓冲区 (Key Buffer)
+            switch (i)
+            {
+            case 0:
+                keybrick.send2Ble(k1Buf);
+                break;
+            case 1:
+                keybrick.send2Ble(k2Buf);
+                break;
+            case 2:
+                keybrick.send2Ble(k3Buf);
+                break;
+            case 3:
+                keybrick.send2Ble(k4Buf);
+                break;
+            case 4:
+                keybrick.send2Ble(k5Buf);
+                break;
+            }
+
+            // 发送后状态流转：等待释放，且清除“待发送”标志
+            keyState[i].isReleased = true;
+            keyState[i].shouldSend = false;
+        }
+    }
+
+    // 处理全局释放事件 (All Keys Released)
+    if (sendRelease)
+    {
+        keybrick.send2Ble(release); // 发送空报文，告诉主机按键已抬起
+        sendRelease = false;
     }
 }

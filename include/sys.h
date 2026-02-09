@@ -6,6 +6,7 @@
 #include "key.h"
 #include "battery.h"
 #include "def.h"
+#include "Hid2Ble.h"
 
 typedef enum {
     MODE_NORMAL,
@@ -30,15 +31,16 @@ typedef struct {
 extern KeyPreset presets[PRESET_COUNT]; // Add preset in this array
 extern char media[5][2];
 extern uint8_t currentPreset;
-extern uint8_t scrollPos;
-
 extern SystemMode currentMode;
 extern struct SystemStatus sysStatus;
+extern bool active;
 extern bool changeName;
 
-extern uint32_t lastActivityTime;
-extern bool screenOn;
-extern bool active;
+extern Hid2Ble keybrick;
+
+void KEY_Detect();
+void BLE_UpdateBAT();
+void KEY_Send();
 
 void SYS_ModeSwitch();
 void SYS_KeyConfig();

@@ -27,7 +27,6 @@ extern Timer timer;
 extern bool timerTriggered;
 
 void TIMER_Set();
-void TIMER_Display();
 void TIMER_Handle();
 void METRONOME_Set();
 void METRONOME_Handle();

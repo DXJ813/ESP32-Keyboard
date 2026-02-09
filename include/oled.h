@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include "def.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define OLED_IIC_ADDR 0x78
 
 void OLED_SetCursor(uint8_t x, uint8_t y);
@@ -23,5 +27,9 @@ void OLED_PrintVLine(uint8_t x, uint8_t y, uint8_t height);
 
 void OLED_LowBrightness(bool lowBrightness);
 void OLED_Power(bool state);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

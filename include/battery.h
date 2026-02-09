@@ -4,6 +4,10 @@
 #include <Arduino.h>
 #include "def.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define ADC_VREF 2.8779789
 #define BAT_VOLT_DIVIDER 0.6357
 
@@ -18,5 +22,9 @@ extern float BAT_Voltage;
 
 void BAT_Read();
 uint8_t BAT_GetPercentage();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
